@@ -1,5 +1,5 @@
-// src/app/auth/signin/page.tsx
 "use client";
+import { Button } from "@/components/ui/button"
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 export default function SignIn() {
@@ -13,5 +13,14 @@ export default function SignIn() {
     });
   };
 
-  return <button onClick={handleGoogle}>Sign in with Google</button>;
+  return (
+    <>
+    <Button variant="outline" className="w-1/6" onClick={handleGoogle}>
+      Login with Google
+      <img src="/images/icons/google-icon.svg" alt="Google Logo" className="w-4" />
+    </Button>
+    </>
+  );
+
+
 }
