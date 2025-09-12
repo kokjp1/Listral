@@ -1,24 +1,17 @@
+// src/app/auth/signin/page.tsx
 "use client";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
-export default function SignInPage() {
+export default function SignIn() {
   const supabase = createSupabaseBrowser();
 
-  async function signIn() {
-    supabase.auth.signInWithOAuth({
+  const handleGoogle = async () => {
+    const callback = `${window.location.origin}/auth/callback?next=/profile`;
+    await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:3000/auth/callback" },
-    })
-  }
+      options: { redirectTo: callback, queryParams: { prompt: "consent" } },
+    });
+  };
 
-  return (
-    <div className="min-h-screen grid place-items-center p-6">
-      <button
-        onClick={signIn}
-        className="rounded-lg px-4 py-2 bg-black text-white"
-      >
-        Sign in with Google
-      </button>
-    </div>
-  );
+  return <button onClick={handleGoogle}>Sign in with Google</button>;
 }
