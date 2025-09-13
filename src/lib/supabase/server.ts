@@ -1,29 +1,54 @@
 // src/lib/supabase/server.ts
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function createSupabaseServer() {
-  const cookieStore = await cookies(); // ✅ now it’s the actual store
+/**
+ * Next.js 15: cookies() may be async in Server Actions/Edge,
+ * so we await it and expose a typed Supabase client.
+ */
+export async function createSupabaseServer(): Promise<SupabaseClient> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch {}
-        },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: "", ...options, maxAge: 0 });
-          } catch {}
-        },
+  if (!url || !key) {
+    throw new Error(
+      "Missing Supabase env vars. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  const cookieStore = await cookies(); // <-- important in Next 15
+
+  return createServerClient(url, key, {
+    cookies: {
+      get(name: string): string | undefined {
+        return cookieStore.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options: CookieOptions): void {
+        // In RSC this can throw; wrap to avoid hard crashes.
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch {
+          // noop – setting cookies is only allowed in Server Actions/Route Handlers
+        }
+      },
+      remove(name: string, options: CookieOptions): void {
+        try {
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+        } catch {
+          // noop
+        }
+      },
+    },
+  });
+}
+
+/** Optional convenience */
+export async function getServerUser() {
+  const supabase = await createSupabaseServer();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  return { user, error };
 }

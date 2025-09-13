@@ -1,30 +1,41 @@
 // src/lib/auth-helpers.ts
-import { createSupabaseServer } from "./supabase/server";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function getSessionAndEnsureUser() {
-  const supabase = await createSupabaseServer(); // <-- await
+/**
+ * Create a Supabase browser client for use in Client Components and event handlers.
+ * Reads public env vars. No `any` types.
+ */
+export function createSupabaseBrowser(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
-  if (sessionErr) throw sessionErr;
-  if (!session) return { session: null, userId: null } as const;
+  if (!url || !key) {
+    // Fail early in the browser to make misconfig obvious during dev
+    throw new Error(
+      "Missing Supabase env vars. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
 
-  const { user } = session;
-  const email = user.email!;
-  const name = (user.user_metadata as any)?.name ?? null;
-  const image = (user.user_metadata as any)?.picture ?? null;
-  const authUserId = user.id;
+  return createBrowserClient(url, key);
+}
 
-  await supabase
-    .from("users_app")
-    .upsert({ email, name, image, auth_user_id: authUserId }, { onConflict: "email" });
+/**
+ * Convenience auth helpers (optional, typed).
+ * Safe to import in client components.
+ */
+export async function signInWithGoogleRedirect(
+  supabase: SupabaseClient,
+  options?: { redirectTo?: string }
+): Promise<void> {
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: options?.redirectTo, // e.g. `${location.origin}/auth/callback`
+    },
+  });
+}
 
-  const { data: row, error } = await supabase
-    .from("users_app")
-    .select("id")
-    .eq("email", email)
-    .single();
-
-  if (error) throw error;
-
-  return { session, userId: row!.id as number } as const;
+export async function signOutBrowser(supabase: SupabaseClient): Promise<void> {
+  await supabase.auth.signOut();
 }
