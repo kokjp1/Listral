@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 // App-wide metadata
 export const metadata: Metadata = {
-  title: "Mediatracker",
+  title: "Listral | Media Tracker",
   description: "Track your games, shows, and movies in one place.",
 };
 
