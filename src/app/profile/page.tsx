@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListChecks, Play, Tv, Film, Settings, LogOut } from "lucide-react";
 import ProfileHeader from "./profileComponents/header";
+import Library from "./profileComponents/library";
 
 // ⬇️ Server Action for sign-out (Google OAuth2 included)
 export async function signOutAction() {
@@ -28,14 +29,12 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  console.log(user);
-
   if (!user) redirect("/auth/signin");
 
   return (
     <>
       {/* Profile header */}
-      <section className="mx-auto mt-6 w-full max-w-screen-2xl px-4">
+      <section className="mx-auto mt-6 w-full max-w-4xl px-4">
         <ProfileHeader
           user={{
             email: user.email ?? null,
@@ -80,7 +79,7 @@ export default async function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl">
+            {/* <Card className="rounded-2xl">
               <CardHeader>
                 <CardTitle>Quick actions</CardTitle>
                 <CardDescription>Update your progress fast</CardDescription>
@@ -99,101 +98,10 @@ export default async function ProfilePage() {
                   Add a new film
                 </Button>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
 
-          {/* Content: Tabs for Games / Series / Films (MVP) */}
-          <div>
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle>Library</CardTitle>
-                <CardDescription>Switch between your media</CardDescription>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4">
-                <Tabs defaultValue="games" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="games">
-                      <Play className="mr-2 size-4" />
-                      Games
-                    </TabsTrigger>
-                    <TabsTrigger value="series">
-                      <Tv className="mr-2 size-4" />
-                      Series
-                    </TabsTrigger>
-                    <TabsTrigger value="films">
-                      <Film className="mr-2 size-4" />
-                      Films
-                    </TabsTrigger>
-                  </TabsList>
-
-                  {/* Games */}
-                  <TabsContent value="games" className="mt-4">
-                    <ScrollArea className="h-[420px] rounded-xl border p-3">
-                      <ul className="grid gap-3 md:grid-cols-2">
-                        {[
-                          { title: "Hades II", status: "Playing", hours: 12 },
-                          { title: "Cyberpunk 2077", status: "Completed", hours: 84 },
-                          { title: "Helldivers 2", status: "Casual", hours: 20 },
-                          { title: "Stardew Valley", status: "Paused", hours: 36 },
-                        ].map((g) => (
-                          <li key={g.title} className="rounded-xl border p-3">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{g.title}</p>
-                              <Badge variant="outline">{g.status}</Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-muted-foreground">{g.hours} hrs</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </TabsContent>
-
-                  {/* Series */}
-                  <TabsContent value="series" className="mt-4">
-                    <ScrollArea className="h-[420px] rounded-xl border p-3">
-                      <ul className="grid gap-3 md:grid-cols-2">
-                        {[
-                          { title: "Dr. Stone: Science Future", progress: "S02E09" },
-                          { title: "Arcane", progress: "S01E05" },
-                          { title: "Peacemaker", progress: "S01E03" },
-                        ].map((s) => (
-                          <li key={s.title} className="rounded-xl border p-3">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{s.title}</p>
-                              <Badge variant="secondary">{s.progress}</Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-muted-foreground">Tap to update episode</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </TabsContent>
-
-                  {/* Films */}
-                  <TabsContent value="films" className="mt-4">
-                    <ScrollArea className="h-[420px] rounded-xl border p-3">
-                      <ul className="grid gap-3 md:grid-cols-2">
-                        {[
-                          { title: "Dune: Part Two", status: "Watched" },
-                          { title: "The Batman", status: "To Watch" },
-                          { title: "Spider-Verse", status: "Watched" },
-                        ].map((f) => (
-                          <li key={f.title} className="rounded-xl border p-3">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{f.title}</p>
-                              <Badge variant="outline">{f.status}</Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-muted-foreground">Add a rating soon</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
+          <Library></Library>
         </div>
       </section>
     </>
