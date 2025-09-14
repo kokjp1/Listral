@@ -1,6 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import InlineItemSheet from "../../profileComponents/InlineItemSheet";
 
 export default async function ItemDetailIntercept(
   props: { params: Promise<{ id: string }> }

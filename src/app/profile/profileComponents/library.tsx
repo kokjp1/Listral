@@ -1,5 +1,4 @@
 // src/app/profile/profileComponents/library.tsx
-import Link from "next/link";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

@@ -4,7 +4,6 @@ import { ReactNode, useEffect, useState } from "react";
 import {
   Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -71,6 +70,9 @@ function SaveButton() {
     </Button>
   );
 }
+
+const getErrorMessage = (e: unknown) =>
+  e instanceof Error ? e.message : typeof e === "string" ? e : "Please try again.";
 
 export default function InlineItemSheet({
   item,
@@ -182,10 +184,8 @@ export default function InlineItemSheet({
                 setEditing(false);
                 router.refresh();
                 toast.success("Saved", { description: "Your changes were updated." });
-              } catch (e: any) {
-                toast.error("Save failed", {
-                  description: e?.message || "Please try again.",
-                });
+              } catch (e: unknown) {
+                toast.error("Save failed", { description: getErrorMessage(e) });
               }
             }}
             className="mt-4 grid grid-cols-1 gap-4"

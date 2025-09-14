@@ -2,15 +2,8 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 // ⬇️ shadcn/ui
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ListChecks, Play, Tv, Film, Settings, LogOut } from "lucide-react";
+import { Play, Tv, Film} from "lucide-react";
 import ProfileHeader from "./profileComponents/header";
 import Library from "./profileComponents/library";
 
