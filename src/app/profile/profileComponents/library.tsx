@@ -10,42 +10,25 @@ import AddItemDialog from "./AddItemDialog";
 import InlineItemSheet from "./InlineItemSheet";
 import { enumLabel } from "@/lib/format";
 
-async function getCurrentAppUserId() {
-  const supabase = await createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.email) return null;
-
-  const { data, error } = await supabase
-    .from("users_app")
-    .select("id")
-    .eq("email", user.email)
-    .maybeSingle();
-
-  if (error) return null;
-  return data?.id as number | undefined | null;
-}
-
 type Item = {
   id: number;
   type: "GAME" | "SERIES" | "MOVIE" | "BOOK";
   title: string;
   status:
-  | "PLAYING"
-  | "PAUSED"
-  | "TO_WATCH"
-  | "COMPLETED"
-  | "CASUAL"
-  | "PLANNED"
-  | "ACTIVE"
-  | "DROPPED";
+    | "PLANNED"
+    | "PLAYING"
+    | "CASUAL"
+    | "WATCHING"
+    | "READING"
+    | "PAUSED"
+    | "DROPPED"
+    | "COMPLETED";
   progress: number | null;
   rating: number | null;
   year: number | null;
   platform_or_author: string | null;
   cover_url: string | null;
-  review: string | null; // ← add this
+  review: string | null;
 };
 
 function EmptyState({ hint }: { hint: string }) {
@@ -103,17 +86,18 @@ function List({ items }: { items: Item[] }) {
   );
 }
 
-// Server component
 export default async function Library() {
   const supabase = await createSupabaseServer();
-  const userAppId = await getCurrentAppUserId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let items: Item[] = [];
-  if (userAppId) {
+  if (user) {
     const { data } = await supabase
       .from("library_items")
-      .select("id, type, title, status, progress, rating, year, platform_or_author, cover_url")
-      .eq("user_id", userAppId)
+      .select("id, type, title, status, progress, rating, year, platform_or_author, cover_url, review")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (data) items = data as unknown as Item[];

@@ -3,113 +3,159 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServer } from "@/lib/supabase/server";
 
-// Adjust to EXACT enum values in your DB:
-const ALLOWED_MEDIA_TYPES = ["MOVIE", "SERIES", "GAME", "BOOK"] as const;
-const ALLOWED_STATUS = [
-  "PLAYING", "PAUSED", "TO_WATCH", "COMPLETED", "CASUAL",
-  "PLANNED", "ACTIVE", "DROPPED",
-] as const;
+const TABLE = "library_items";
 
-type MediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
-type StatusType = (typeof ALLOWED_STATUS)[number];
+export type LibraryItemInput = {
+  id?: number;
+  type: "GAME" | "SERIES" | "MOVIE" | "BOOK";
+  title: string;
+  status:
+    | "PLANNED"
+    | "PLAYING"
+    | "CASUAL"
+    | "WATCHING"
+    | "READING"
+    | "PAUSED"
+    | "DROPPED"
+    | "COMPLETED";
+  year?: number | null;
+  platform_or_author?: string | null;
+  progress?: number | null;
+  rating?: number | null;
+  cover_url?: string | null;
+  review?: string | null;
+};
 
-async function getCurrentAppUserId(): Promise<number> {
+const toNumOrNull = (v: FormDataEntryValue | null): number | null => {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const toStrOrNull = (v: FormDataEntryValue | null): string | null =>
+  v == null || String(v).trim() === "" ? null : String(v);
+
+const REVALIDATE_PATH = "/profile";
+
+async function requireUser() {
   const supabase = await createSupabaseServer();
-  const { data: { user }, error: uerr } = await supabase.auth.getUser();
-  if (uerr || !user?.email) throw new Error("Not authenticated.");
-
-  const { data: existing, error } = await supabase
-    .from("users_app")
-    .select("id")
-    .eq("email", user.email)
-    .maybeSingle();
+  const { data, error } = await supabase.auth.getUser();
   if (error) throw new Error(error.message);
-  if (existing?.id) return existing.id as number;
-
-  const name = user.user_metadata?.full_name ?? null;
-  const image = user.user_metadata?.avatar_url ?? null;
-  const { data: inserted, error: ierr } = await supabase
-    .from("users_app")
-    .insert({ email: user.email, name, image })
-    .select("id")
-    .single();
-  if (ierr) throw new Error(ierr.message);
-  return inserted.id as number;
+  if (!data.user) throw new Error("Not authenticated.");
+  return { supabase, user: data.user };
 }
 
-/* CREATE */
-export async function createLibraryItem(formData: FormData) {
-  const supabase = await createSupabaseServer();
-  const user_id = await getCurrentAppUserId();
+export async function addLibraryItem(formData: FormData) {
+  const { supabase, user } = await requireUser();
 
-  // helpers to parse optional numbers
-  const num = (v: FormDataEntryValue | null) => {
-    const s = (v ?? "").toString().trim();
-    return s === "" ? null : Number(s);
+  const payload: LibraryItemInput = {
+    type: (formData.get("type") as LibraryItemInput["type"]) ?? "GAME",
+    title: String(formData.get("title") ?? "").trim(),
+    status: (formData.get("status") as LibraryItemInput["status"]) ?? "PLANNED",
+    year: toNumOrNull(formData.get("year")),
+    platform_or_author: toStrOrNull(formData.get("platform_or_author")),
+    progress: toNumOrNull(formData.get("progress")),
+    rating: toNumOrNull(formData.get("rating")),
+    cover_url: toStrOrNull(formData.get("cover_url")),
+    review: toStrOrNull(formData.get("review")),
   };
 
-  const type = String(formData.get("type") || "").toUpperCase() as MediaType;
-  const status = String(formData.get("status") || "").toUpperCase() as StatusType;
-  const title = String(formData.get("title") || "").trim();
+  if (!payload.title) throw new Error("Title is required.");
 
-  if (!title) throw new Error("Title is required.");
-  if (!ALLOWED_MEDIA_TYPES.includes(type)) throw new Error("Invalid media type.");
-  if (!ALLOWED_STATUS.includes(status)) throw new Error("Invalid status.");
-
-  const { error } = await supabase.from("library_items").insert({
-    user_id,
-    type,
-    title,
-    status,
-    year: num(formData.get("year")),
-    platform_or_author: (formData.get("platform_or_author") || "").toString().trim() || null,
-    rating: num(formData.get("rating")),
-    progress: num(formData.get("progress")),
-    cover_url: (formData.get("cover_url") || "").toString().trim() || null,
-    review: (formData.get("review") || "").toString().trim() || null,
+  const { error } = await supabase.from(TABLE).insert({
+    ...payload,
+    user_id: user.id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   });
 
   if (error) throw new Error(error.message);
-  revalidatePath("/profile");
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
 }
 
-/* UPDATE */
 export async function updateLibraryItem(formData: FormData) {
-  const supabase = await createSupabaseServer();
-  const user_id = await getCurrentAppUserId();
+  const { supabase, user } = await requireUser();
 
   const id = Number(formData.get("id"));
-  if (!id) throw new Error("Missing id.");
+  if (!id || Number.isNaN(id)) throw new Error("Missing or invalid id.");
 
-  const num = (v: FormDataEntryValue | null) => {
-    const s = (v ?? "").toString().trim();
-    return s === "" ? null : Number(s);
+  const payload: LibraryItemInput = {
+    id,
+    type: (formData.get("type") as LibraryItemInput["type"]) ?? "GAME",
+    title: String(formData.get("title") ?? "").trim(),
+    status: (formData.get("status") as LibraryItemInput["status"]) ?? "PLANNED",
+    year: toNumOrNull(formData.get("year")),
+    platform_or_author: toStrOrNull(formData.get("platform_or_author")),
+    progress: toNumOrNull(formData.get("progress")),
+    rating: toNumOrNull(formData.get("rating")),
+    cover_url: toStrOrNull(formData.get("cover_url")),
+    review: toStrOrNull(formData.get("review")),
   };
 
-  const type = String(formData.get("type") || "").toUpperCase() as MediaType;
-  const status = String(formData.get("status") || "").toUpperCase() as StatusType;
-  const title = String(formData.get("title") || "").trim();
-
-  if (!title) throw new Error("Title is required.");
-  if (!ALLOWED_MEDIA_TYPES.includes(type)) throw new Error("Invalid media type.");
-  if (!ALLOWED_STATUS.includes(status)) throw new Error("Invalid status.");
+  if (!payload.title) throw new Error("Title is required.");
 
   const { error } = await supabase
-    .from("library_items")
+    .from(TABLE)
     .update({
-      type,
-      title,
-      status,
-      year: num(formData.get("year")),
-      platform_or_author: (formData.get("platform_or_author") || "").toString().trim() || null,
-      rating: num(formData.get("rating")),
-      progress: num(formData.get("progress")),
-      cover_url: (formData.get("cover_url") || "").toString().trim() || null,
-      review: (formData.get("review") || "").toString().trim() || null,
+      type: payload.type,
+      title: payload.title,
+      status: payload.status,
+      year: payload.year,
+      platform_or_author: payload.platform_or_author,
+      progress: payload.progress,
+      rating: payload.rating,
+      cover_url: payload.cover_url,
+      review: payload.review,
+      updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("user_id", user_id);
+    .eq("user_id", user.id);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/profile");
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
+}
+
+export async function deleteLibraryItem(formData: FormData) {
+  const { supabase, user } = await requireUser();
+
+  const id = Number(formData.get("id"));
+  if (!id || Number.isNaN(id)) throw new Error("Missing or invalid id.");
+
+  const { error } = await supabase.from(TABLE).delete().eq("id", id).eq("user_id", user.id);
+
+  if (error) throw new Error(error.message);
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
+}
+
+export async function addLibraryItemDirect(input: LibraryItemInput) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from(TABLE).insert({
+    ...input,
+    user_id: user.id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
+}
+
+export async function updateLibraryItemDirect(input: LibraryItemInput & { id: number }) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from(TABLE)
+    .update({
+      ...input,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.id)
+    .eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
+}
+
+export async function deleteLibraryItemDirect(id: number) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from(TABLE).delete().eq("id", id).eq("user_id", user.id);
+  if (error) throw new Error(error.message);
+  if (REVALIDATE_PATH) revalidatePath(REVALIDATE_PATH);
 }

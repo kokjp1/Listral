@@ -1,29 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useFormStatus } from "react-dom";
 import { PlusIcon } from "@radix-ui/react-icons";
-import { createLibraryItem } from "@/functions/crud";
+import { addLibraryItem } from "@/functions/crud";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,24 +20,50 @@ function SubmitButton() {
   );
 }
 
-// Pretty label → EXACT enum value (matches your DB)
 const TYPE_OPTIONS = [
   { label: "Game", value: "GAME" },
   { label: "Series", value: "SERIES" },
   { label: "Film", value: "MOVIE" },
-  // { label: "Book", value: "BOOK" }, // enable later if you add a tab
+  // { label: "Book", value: "BOOK" },
+] as const;
+
+type Status =
+  | "PLANNED"
+  | "PLAYING"
+  | "CASUAL"
+  | "WATCHING"
+  | "READING"
+  | "PAUSED"
+  | "DROPPED"
+  | "COMPLETED";
+
+const ALL_STATUS_OPTIONS: { label: string; value: Status }[] = [
+  { label: "Planned", value: "PLANNED" },
+  { label: "Playing", value: "PLAYING" },
+  { label: "Casual", value: "CASUAL" },
+  { label: "Watching", value: "WATCHING" },
+  { label: "Reading", value: "READING" },
+  { label: "Paused", value: "PAUSED" },
+  { label: "Dropped", value: "DROPPED" },
+  { label: "Completed", value: "COMPLETED" },
 ];
 
-const STATUS_OPTIONS = [
-  { label: "Playing", value: "PLAYING" },
-  { label: "Completed", value: "COMPLETED" },
-  { label: "Paused", value: "PAUSED" },
-  { label: "Casual", value: "CASUAL" },
-  { label: "To Watch", value: "TO_WATCH" },
-];
+type TypeValue = (typeof TYPE_OPTIONS)[number]["value"] | "BOOK";
+
+const STATUS_BY_TYPE: Record<TypeValue, Status[]> = {
+  GAME: ["PLANNED", "PLAYING", "CASUAL", "PAUSED", "DROPPED", "COMPLETED"],
+  MOVIE: ["PLANNED", "WATCHING", "CASUAL", "PAUSED", "DROPPED", "COMPLETED"],
+  SERIES: ["PLANNED", "WATCHING", "CASUAL", "PAUSED", "DROPPED", "COMPLETED"],
+  BOOK: ["PLANNED", "READING", "CASUAL", "PAUSED", "DROPPED", "COMPLETED"],
+};
+
+const getStatusOptionsForType = (t: TypeValue) =>
+  ALL_STATUS_OPTIONS.filter((o) => STATUS_BY_TYPE[t].includes(o.value));
 
 export default function AddItemDialog() {
   const [open, setOpen] = useState(false);
+  const [typeValue, setTypeValue] = useState<TypeValue>(TYPE_OPTIONS[0].value);
+  const [statusValue, setStatusValue] = useState<Status>("PLANNED");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -69,19 +81,21 @@ export default function AddItemDialog() {
 
         <form
           action={async (fd) => {
-            await createLibraryItem(fd);
+            await addLibraryItem(fd);
             setOpen(false);
           }}
           className="grid gap-4"
         >
-          {/* Type (enum) */}
           <div className="grid gap-2">
             <Label>Type</Label>
             <Select
-              defaultValue={TYPE_OPTIONS[0].value}
+              value={typeValue}
               onValueChange={(v) => {
-                const hidden = document.getElementById("type-hidden") as HTMLInputElement | null;
-                if (hidden) hidden.value = v;
+                const next = v as TypeValue;
+                setTypeValue(next);
+                setStatusValue((s) =>
+                  STATUS_BY_TYPE[next].includes(s) ? s : "PLANNED"
+                );
               }}
             >
               <SelectTrigger>
@@ -95,45 +109,31 @@ export default function AddItemDialog() {
                 ))}
               </SelectContent>
             </Select>
-            <input id="type-hidden" name="type" type="hidden" defaultValue={TYPE_OPTIONS[0].value} />
+            <input name="type" type="hidden" value={typeValue} />
           </div>
 
-          {/* Title */}
           <div className="grid gap-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" name="title" placeholder="e.g., Hades II" required />
           </div>
 
-          {/* Status (enum) */}
           <div className="grid gap-2">
             <Label>Status</Label>
-            <Select
-              defaultValue={STATUS_OPTIONS[0].value}
-              onValueChange={(v) => {
-                const hidden = document.getElementById("status-hidden") as HTMLInputElement | null;
-                if (hidden) hidden.value = v;
-              }}
-            >
+            <Select value={statusValue} onValueChange={(v) => setStatusValue(v as Status)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {STATUS_OPTIONS.map((s) => (
+                {getStatusOptionsForType(typeValue).map((s) => (
                   <SelectItem key={s.value} value={s.value}>
                     {s.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <input
-              id="status-hidden"
-              name="status"
-              type="hidden"
-              defaultValue={STATUS_OPTIONS[0].value}
-            />
+            <input name="status" type="hidden" value={statusValue} />
           </div>
 
-          {/* Optional fields */}
           <div className="grid gap-2">
             <Label htmlFor="year">Year (optional)</Label>
             <Input id="year" name="year" type="number" inputMode="numeric" placeholder="2024" />
@@ -141,11 +141,7 @@ export default function AddItemDialog() {
 
           <div className="grid gap-2">
             <Label htmlFor="platform_or_author">Platform / Author (optional)</Label>
-            <Input
-              id="platform_or_author"
-              name="platform_or_author"
-              placeholder="Steam / HBO / Frank Herbert ..."
-            />
+            <Input id="platform_or_author" name="platform_or_author" placeholder="Steam / HBO / Frank Herbert ..." />
           </div>
 
           <div className="grid gap-2">
@@ -155,14 +151,7 @@ export default function AddItemDialog() {
 
           <div className="grid gap-2">
             <Label htmlFor="progress">Progress (optional)</Label>
-            <Input
-              id="progress"
-              name="progress"
-              type="number"
-              min={0}
-              inputMode="numeric"
-              placeholder="e.g., hours or episode #"
-            />
+            <Input id="progress" name="progress" type="number" min={0} inputMode="numeric" placeholder="e.g., hours or episode #" />
           </div>
 
           <div className="grid gap-2">
